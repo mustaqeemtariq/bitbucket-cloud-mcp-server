@@ -36,6 +36,7 @@ function handleBitbucketError(
     const data = error.response?.data;
 
     const bitbucketMessage =
+      (typeof data === "string" ? data : null) ||
       data?.error?.message ||
       data?.error?.detail ||
       data?.message ||
@@ -183,7 +184,12 @@ export async function approvePullRequest(repo: string, id: number) {
 export async function mergePullRequest(repo: string, id: number) {
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/merge`;
 
-  return request("mergePullRequest", endpoint, () => bitbucket.post(endpoint));
+  return request("mergePullRequest", endpoint, () =>
+    bitbucket.post(endpoint, {
+      merge_strategy: "merge_commit",
+      close_source_branch: true,
+    }),
+  );
 }
 
 export async function addComment(repo: string, id: number, comment: string) {
