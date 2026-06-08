@@ -1,9 +1,17 @@
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 
 const workspace = process.env.BITBUCKET_WORKSPACE;
 
 if (!workspace) {
   throw new Error("BITBUCKET_WORKSPACE is not configured");
+}
+
+if (!process.env.BITBUCKET_EMAIL) {
+  throw new Error("BITBUCKET_EMAIL is not configured");
+}
+
+if (!process.env.BITBUCKET_TOKEN) {
+  throw new Error("BITBUCKET_TOKEN is not configured");
 }
 
 export const bitbucket = axios.create({
@@ -27,40 +35,55 @@ function handleBitbucketError(
     const status = error.response?.status;
     const data = error.response?.data;
 
-    console.error(`\n========== BITBUCKET ERROR ==========
+    const bitbucketMessage =
+      data?.error?.message ||
+      data?.error?.detail ||
+      data?.message ||
+      error.message;
+
+    console.error(`
+========== BITBUCKET ERROR ==========
 Operation: ${operation}
 Endpoint: ${endpoint ?? "unknown"}
 Status: ${status ?? "unknown"}
 Response:
 ${JSON.stringify(data, null, 2)}
-====================================\n`);
+====================================
+`);
 
-    if (status === 404) {
-      throw new Error(
-        `${operation} failed: Resource not found (404). Endpoint: ${endpoint}`,
-      );
+    switch (status) {
+      case 400:
+        throw new Error(`${operation} failed: ${bitbucketMessage}`);
+
+      case 401:
+        throw new Error(
+          `${operation} failed: Authentication failed (401). Check BITBUCKET_EMAIL and BITBUCKET_TOKEN.`,
+        );
+
+      case 403:
+        throw new Error(
+          `${operation} failed: Permission denied (403). ${bitbucketMessage}`,
+        );
+
+      case 404:
+        throw new Error(`${operation} failed: Resource not found (404).`);
+
+      case 409:
+        throw new Error(
+          `${operation} failed: Conflict (409). ${bitbucketMessage}`,
+        );
+
+      default:
+        throw new Error(
+          `${operation} failed (${status ?? "unknown"}): ${bitbucketMessage}`,
+        );
     }
-
-    if (status === 401) {
-      throw new Error(
-        `${operation} failed: Authentication failed (401). Check BITBUCKET_EMAIL and BITBUCKET_TOKEN.`,
-      );
-    }
-
-    if (status === 403) {
-      throw new Error(
-        `${operation} failed: Permission denied (403). Token lacks required permissions.`,
-      );
-    }
-
-    throw new Error(
-      `${operation} failed (${status}): ${
-        typeof data === "string" ? data : JSON.stringify(data ?? error.message)
-      }`,
-    );
   }
 
-  console.error(`${operation} failed`, error);
+  console.error(
+    `[Bitbucket MCP] ${operation} failed with non-Axios error`,
+    error,
+  );
 
   throw new Error(
     `${operation} failed: ${
@@ -88,24 +111,32 @@ async function request<T>(
 export async function listRepositories() {
   const endpoint = `/repositories/${workspace}`;
 
-  const data = await request("listRepositories", endpoint, () =>
+  const data = await request<any>("listRepositories", endpoint, () =>
     bitbucket.get(endpoint),
   );
 
-  return (data as any)?.values.map((repo: any) => ({
+  return (data?.values ?? []).map((repo: any) => ({
     name: repo.name,
     slug: repo.slug,
+    full_name: repo.full_name,
+    is_private: repo.is_private,
   }));
+}
+
+export async function getRepository(repo: string) {
+  const endpoint = `/repositories/${workspace}/${repo}`;
+
+  return request("getRepository", endpoint, () => bitbucket.get(endpoint));
 }
 
 export async function listPullRequests(repo: string) {
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests`;
 
-  const data = await request("listPullRequests", endpoint, () =>
+  const data = await request<any>("listPullRequests", endpoint, () =>
     bitbucket.get(endpoint),
   );
 
-  return (data as any)?.values ?? [];
+  return data?.values ?? [];
 }
 
 export async function getPullRequest(repo: string, id: number) {
@@ -170,41 +201,53 @@ export async function addComment(repo: string, id: number, comment: string) {
 export async function listCommits(repo: string) {
   const endpoint = `/repositories/${workspace}/${repo}/commits`;
 
-  const data = await request("listCommits", endpoint, () =>
+  const data = await request<any>("listCommits", endpoint, () =>
     bitbucket.get(endpoint),
   );
 
-  return (data as any)?.values ?? [];
-}
-
-export async function getRepository(repo: string) {
-  const endpoint = `/repositories/${workspace}/${repo}`;
-
-  return request("getRepository", endpoint, () => bitbucket.get(endpoint));
+  return data?.values ?? [];
 }
 
 export async function getPullRequestDiff(repo: string, id: number) {
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/diff`;
 
-  const { data } = await bitbucket.get(endpoint, {
-    responseType: "text",
-  });
-
-  return data;
+  return request<string>("getPullRequestDiff", endpoint, () =>
+    bitbucket.get(endpoint, {
+      responseType: "text",
+    }),
+  );
 }
 
 export async function getPullRequestComments(repo: string, id: number) {
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/comments`;
 
-  const { data } = await bitbucket.get(endpoint);
+  const data = await request<any>("getPullRequestComments", endpoint, () =>
+    bitbucket.get(endpoint),
+  );
 
-  return data.values;
+  return data?.values ?? [];
 }
 
 export async function getPullRequestCommits(repo: string, id: number) {
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/commits`;
 
-  const { data } = await bitbucket.get(endpoint);
+  const data = await request<any>("getPullRequestCommits", endpoint, () =>
+    bitbucket.get(endpoint),
+  );
 
-  return data.values;
+  return data?.values ?? [];
+}
+
+export async function canMergePullRequest(repo: string, id: number) {
+  const pr: any = await getPullRequest(repo, id);
+
+  return {
+    id: pr.id,
+    title: pr.title,
+    state: pr.state,
+    queued: pr.queued,
+    draft: pr.draft,
+    sourceBranch: pr.source?.branch?.name,
+    destinationBranch: pr.destination?.branch?.name,
+  };
 }
