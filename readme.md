@@ -1,4 +1,5 @@
 # Bitbucket Cloud MCP Server
+[![npm version](https://img.shields.io/npm/v/bitbucket-cloud-mcp-server)](https://www.npmjs.com/package/bitbucket-cloud-mcp-server)
 
 A Model Context Protocol (MCP) server that lets MCP-compatible AI clients work with Bitbucket Cloud repositories, pull requests, commits, comments, approvals, and merges.
 
