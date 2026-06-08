@@ -177,7 +177,7 @@ export async function approvePullRequest(repo: string, id: number) {
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/approve`;
 
   return request("approvePullRequest", endpoint, () =>
-    bitbucket.post(endpoint),
+    bitbucket.post(endpoint, {}),
   );
 }
 
