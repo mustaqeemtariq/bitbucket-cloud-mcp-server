@@ -28,6 +28,14 @@
   ],
   "author": "Mustaqeem Tariq",
   "license": "ISC",
+  "homepage": "https://github.com/mustaqeemtariq/bitbucket-cloud-mcp-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mustaqeemtariq/bitbucket-cloud-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mustaqeemtariq/bitbucket-cloud-mcp-server/issues"
+  },
   "engines": {
     "node": ">=18"
   },
