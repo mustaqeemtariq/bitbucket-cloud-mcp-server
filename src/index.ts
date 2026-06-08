@@ -60,7 +60,10 @@ server.registerTool(
       readOnlyHint: true,
     },
     inputSchema: z.object({
-      includePrivate: z.boolean().optional(),
+      workspace: z
+        .string()
+        .describe("Bitbucket workspace to list repositories from"),
+      includePrivate: z.boolean(),
     }),
   },
   async ({ includePrivate = true }) => {
