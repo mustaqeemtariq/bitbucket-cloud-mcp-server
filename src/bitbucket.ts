@@ -244,6 +244,39 @@ export async function getPullRequestCommits(repo: string, id: number) {
   return data?.values ?? [];
 }
 
+export async function addInlineComment(
+  repo: string,
+  id: number,
+  comment: string,
+  filePath: string,
+  line: number,
+) {
+  const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/comments`;
+
+  return request("addInlineComment", endpoint, () =>
+    bitbucket.post(endpoint, {
+      content: {
+        raw: comment,
+      },
+      inline: {
+        path: filePath,
+        to: line,
+      },
+    }),
+  );
+}
+
+export async function requestChanges(
+  repo: string,
+  id: number,
+) {
+  const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/request-changes`;
+
+  return request("requestChanges", endpoint, () =>
+    bitbucket.post(endpoint, {}),
+  );
+}
+
 export async function canMergePullRequest(repo: string, id: number) {
   const pr: any = await getPullRequest(repo, id);
 

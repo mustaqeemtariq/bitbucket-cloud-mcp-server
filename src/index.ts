@@ -13,6 +13,8 @@ import {
   approvePullRequest,
   mergePullRequest,
   addComment,
+  addInlineComment,
+  requestChanges,
   listCommits,
   getPullRequestDiff,
   getPullRequestComments,
@@ -49,6 +51,54 @@ function errorResult(error: unknown) {
     ],
     isError: true,
   };
+}
+
+interface ChangedFile {
+  filePath: string;
+  additions: number[];
+  deletions: number[];
+}
+
+function parseDiffFiles(diff: string): ChangedFile[] {
+  const files: ChangedFile[] = [];
+  const fileSections = diff.split(/^diff --git /m).filter(Boolean);
+
+  for (const section of fileSections) {
+    const fileMatch = section.match(/b\/(.+?)[\r\n]/);
+    if (!fileMatch) continue;
+
+    const filePath = fileMatch[1];
+    const additions: number[] = [];
+    const deletions: number[] = [];
+
+    const hunkRegex = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/gm;
+    let hunkMatch;
+
+    while ((hunkMatch = hunkRegex.exec(section)) !== null) {
+      let newLine = parseInt(hunkMatch[1], 10);
+      const hunkStart = hunkMatch.index + hunkMatch[0].length;
+      const nextHunk = section.indexOf("\n@@ ", hunkStart);
+      const hunkBody = section.slice(
+        hunkStart,
+        nextHunk === -1 ? undefined : nextHunk,
+      );
+
+      for (const line of hunkBody.split("\n")) {
+        if (line.startsWith("+") && !line.startsWith("+++")) {
+          additions.push(newLine);
+          newLine++;
+        } else if (line.startsWith("-") && !line.startsWith("---")) {
+          deletions.push(newLine);
+        } else {
+          newLine++;
+        }
+      }
+    }
+
+    files.push({ filePath, additions, deletions });
+  }
+
+  return files;
 }
 
 server.registerTool(
@@ -198,11 +248,21 @@ server.registerTool(
       repo: z.string(),
       id: z.number(),
       comment: z.string(),
+      imageUrl: z
+        .string()
+        .optional()
+        .describe(
+          "Optional image URL to embed in the comment (rendered as markdown image)",
+        ),
     }),
   },
-  async ({ repo, id, comment }) => {
+  async ({ repo, id, comment, imageUrl }) => {
     try {
-      const result = await addComment(repo, id, comment);
+      let body = comment;
+      if (imageUrl) {
+        body += `\n\n![image](${imageUrl})`;
+      }
+      const result = await addComment(repo, id, body);
 
       return jsonResult(result);
     } catch (error) {
@@ -231,6 +291,55 @@ server.registerTool(
 );
 
 server.registerTool(
+  "inline_comment_pull_request",
+  {
+    title: "Inline Comment on Pull Request",
+    description:
+      "Add an inline comment on a specific file and line in a pull request diff. Only use this tool when the user explicitly asks to post comments on the PR.",
+    inputSchema: z.object({
+      repo: z.string(),
+      id: z.number(),
+      comment: z.string().describe("The review comment text"),
+      filePath: z
+        .string()
+        .describe("Path to the file in the repository (e.g. src/index.ts)"),
+      line: z
+        .number()
+        .describe("Line number in the new version of the file to comment on"),
+    }),
+  },
+  async ({ repo, id, comment, filePath, line }) => {
+    try {
+      const result = await addInlineComment(repo, id, comment, filePath, line);
+      return jsonResult(result);
+    } catch (error) {
+      return errorResult(error);
+    }
+  },
+);
+
+server.registerTool(
+  "request_changes",
+  {
+    title: "Request Changes on Pull Request",
+    description:
+      "Request changes on a pull request, signaling the author needs to address feedback. Only use this tool when the user explicitly asks to request changes.",
+    inputSchema: z.object({
+      repo: z.string(),
+      id: z.number(),
+    }),
+  },
+  async ({ repo, id }) => {
+    try {
+      const result = await requestChanges(repo, id);
+      return jsonResult(result);
+    } catch (error) {
+      return errorResult(error);
+    }
+  },
+);
+
+server.registerTool(
   "review_pull_request",
   {
     title: "Review Pull Request",
@@ -252,6 +361,8 @@ server.registerTool(
         getPullRequestCommits(repo, id),
       ]);
 
+      const changedFiles = parseDiffFiles(diff);
+
       return {
         content: [
           {
@@ -267,6 +378,7 @@ server.registerTool(
                 },
                 commits,
                 comments,
+                changedFiles,
                 diff,
               },
               null,
