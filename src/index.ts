@@ -13,7 +13,6 @@ import {
   approvePullRequest,
   mergePullRequest,
   addComment,
-  addInlineComment,
   requestChanges,
   listCommits,
   getPullRequestDiff,
@@ -243,27 +242,39 @@ server.registerTool(
   "comment_pull_request",
   {
     title: "Comment Pull Request",
-    description: "Add comment to a pull request",
+    description:
+      "Add a comment to a pull request. Optionally provide filePath and line to make it an inline comment on a specific line in the diff.",
     inputSchema: z.object({
       repo: z.string(),
       id: z.number(),
-      comment: z.string(),
+      comment: z.string().describe("The comment text"),
       imageUrl: z
         .string()
         .optional()
         .describe(
           "Optional image URL to embed in the comment (rendered as markdown image)",
         ),
+      filePath: z
+        .string()
+        .optional()
+        .describe(
+          "Path to the file in the repository (e.g. src/index.ts). When provided with line, creates an inline comment.",
+        ),
+      line: z
+        .number()
+        .optional()
+        .describe(
+          "Line number in the new version of the file to comment on. Must be provided together with filePath.",
+        ),
     }),
   },
-  async ({ repo, id, comment, imageUrl }) => {
+  async ({ repo, id, comment, imageUrl, filePath, line }) => {
     try {
       let body = comment;
       if (imageUrl) {
         body += `\n\n![image](${imageUrl})`;
       }
-      const result = await addComment(repo, id, body);
-
+      const result = await addComment(repo, id, body, filePath, line);
       return jsonResult(result);
     } catch (error) {
       return errorResult(error);
@@ -284,34 +295,6 @@ server.registerTool(
     try {
       const commits = await listCommits(repo);
       return jsonResult(commits);
-    } catch (error) {
-      return errorResult(error);
-    }
-  },
-);
-
-server.registerTool(
-  "inline_comment_pull_request",
-  {
-    title: "Inline Comment on Pull Request",
-    description:
-      "Add an inline comment on a specific file and line in a pull request diff. Only use this tool when the user explicitly asks to post comments on the PR.",
-    inputSchema: z.object({
-      repo: z.string(),
-      id: z.number(),
-      comment: z.string().describe("The review comment text"),
-      filePath: z
-        .string()
-        .describe("Path to the file in the repository (e.g. src/index.ts)"),
-      line: z
-        .number()
-        .describe("Line number in the new version of the file to comment on"),
-    }),
-  },
-  async ({ repo, id, comment, filePath, line }) => {
-    try {
-      const result = await addInlineComment(repo, id, comment, filePath, line);
-      return jsonResult(result);
     } catch (error) {
       return errorResult(error);
     }

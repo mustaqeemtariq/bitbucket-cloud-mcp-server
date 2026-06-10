@@ -187,15 +187,40 @@ Input:
 
 ### `comment_pull_request`
 
-Adds a comment to a pull request.
+Adds a comment to a pull request. Optionally provide `filePath` and `line` to make it an inline comment on a specific line in the diff.
 
-Input:
+General comment:
 
 ```json
 {
   "repo": "my-repository",
   "id": 123,
   "comment": "Looks good to me."
+}
+```
+
+Inline comment on a specific file and line:
+
+```json
+{
+  "repo": "my-repository",
+  "id": 123,
+  "comment": "Consider renaming this variable.",
+  "filePath": "src/index.ts",
+  "line": 42
+}
+```
+
+### `request_changes`
+
+Requests changes on a pull request, signaling the author needs to address feedback.
+
+Input:
+
+```json
+{
+  "repo": "my-repository",
+  "id": 123
 }
 ```
 

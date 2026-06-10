@@ -192,15 +192,30 @@ export async function mergePullRequest(repo: string, id: number) {
   );
 }
 
-export async function addComment(repo: string, id: number, comment: string) {
+export async function addComment(
+  repo: string,
+  id: number,
+  comment: string,
+  filePath?: string,
+  line?: number,
+) {
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/comments`;
 
+  const body: Record<string, unknown> = {
+    content: {
+      raw: comment,
+    },
+  };
+
+  if (filePath && line !== undefined) {
+    body.inline = {
+      path: filePath,
+      to: line,
+    };
+  }
+
   return request("addComment", endpoint, () =>
-    bitbucket.post(endpoint, {
-      content: {
-        raw: comment,
-      },
-    }),
+    bitbucket.post(endpoint, body),
   );
 }
 
@@ -244,27 +259,7 @@ export async function getPullRequestCommits(repo: string, id: number) {
   return data?.values ?? [];
 }
 
-export async function addInlineComment(
-  repo: string,
-  id: number,
-  comment: string,
-  filePath: string,
-  line: number,
-) {
-  const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/comments`;
 
-  return request("addInlineComment", endpoint, () =>
-    bitbucket.post(endpoint, {
-      content: {
-        raw: comment,
-      },
-      inline: {
-        path: filePath,
-        to: line,
-      },
-    }),
-  );
-}
 
 export async function requestChanges(
   repo: string,
