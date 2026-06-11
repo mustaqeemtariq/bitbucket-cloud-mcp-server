@@ -6,7 +6,7 @@ A Model Context Protocol (MCP) server that lets MCP-compatible AI clients work w
 ## Features
 
 * List repositories in a Bitbucket workspace
-* List, inspect, create, approve, merge, and comment on pull requests
+* List, inspect, create, update, approve, merge, and comment on pull requests
 * Fetch pull request metadata, commits, comments, and diff content for reviews
 * List repository commits
 * Read-only annotations on safe exploration tools
@@ -154,6 +154,23 @@ Input:
   "source": "feature/auth",
   "destination": "main",
   "description": "Adds login functionality"
+}
+```
+
+### `update_pull_request`
+
+Updates an existing pull request's title, description, destination branch, or reviewers. All fields are optional — only provided fields are updated.
+
+Input:
+
+```json
+{
+  "repo": "my-repository",
+  "id": 123,
+  "title": "Updated title",
+  "description": "Updated description",
+  "destination": "develop",
+  "reviewers": ["{user-uuid-1}", "{user-uuid-2}"]
 }
 ```
 

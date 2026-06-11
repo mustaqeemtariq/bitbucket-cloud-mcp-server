@@ -10,6 +10,7 @@ import {
   listPullRequests,
   getPullRequest,
   createPullRequest,
+  updatePullRequest,
   approvePullRequest,
   mergePullRequest,
   addComment,
@@ -135,7 +136,7 @@ server.registerTool(
     title: "List Pull Requests",
     description: "List pull requests for a repository",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
     }),
   },
   async ({ repo }) => {
@@ -154,7 +155,7 @@ server.registerTool(
     title: "Get Pull Request",
     description: "Get pull request details",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
       id: z.number(),
     }),
   },
@@ -174,7 +175,7 @@ server.registerTool(
     title: "Create Pull Request",
     description: "Create a new pull request",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
       title: z.string(),
       source: z.string(),
       destination: z.string(),
@@ -199,12 +200,41 @@ server.registerTool(
 );
 
 server.registerTool(
+  "update_pull_request",
+  {
+    title: "Update Pull Request",
+    description: "Update an existing pull request's title, description, destination branch, or reviewers",
+    inputSchema: z.object({
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
+      id: z.number().describe("Pull request ID"),
+      title: z.string().optional().describe("New title for the pull request"),
+      description: z.string().optional().describe("New description for the pull request"),
+      destination: z.string().optional().describe("New destination branch name"),
+      reviewers: z.array(z.string()).optional().describe("List of reviewer UUIDs to set on the pull request"),
+    }),
+  },
+  async ({ repo, id, title, description, destination, reviewers }) => {
+    try {
+      const result = await updatePullRequest(repo, id, {
+        title,
+        description,
+        destination,
+        reviewers,
+      });
+      return jsonResult(result);
+    } catch (error) {
+      return errorResult(error);
+    }
+  },
+);
+
+server.registerTool(
   "approve_pull_request",
   {
     title: "Approve Pull Request",
     description: "Approve a pull request",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
       id: z.number(),
     }),
   },
@@ -224,7 +254,7 @@ server.registerTool(
     title: "Merge Pull Request",
     description: "Merge a pull request",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
       id: z.number(),
     }),
   },
@@ -245,7 +275,7 @@ server.registerTool(
     description:
       "Add a comment to a pull request. Optionally provide filePath and line to make it an inline comment on a specific line in the diff.",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
       id: z.number(),
       comment: z.string().describe("The comment text"),
       imageUrl: z
@@ -288,7 +318,7 @@ server.registerTool(
     title: "List Commits",
     description: "List commits for a repository",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
     }),
   },
   async ({ repo }) => {
@@ -308,7 +338,7 @@ server.registerTool(
     description:
       "Request changes on a pull request, signaling the author needs to address feedback. Only use this tool when the user explicitly asks to request changes.",
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
       id: z.number(),
     }),
   },
@@ -331,7 +361,7 @@ server.registerTool(
       readOnlyHint: true,
     },
     inputSchema: z.object({
-      repo: z.string(),
+      repo: z.string().describe("Repository slug only (e.g. 'my-repo', NOT 'workspace/my-repo')"),
       id: z.number(),
     }),
   },

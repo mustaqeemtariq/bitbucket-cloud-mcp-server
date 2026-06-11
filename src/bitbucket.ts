@@ -109,6 +109,17 @@ async function request<T>(
   }
 }
 
+/**
+ * Normalizes a repo identifier: if the caller passes "workspace/repo",
+ * strip the workspace prefix and return only the repo slug.
+ */
+function normalizeRepo(repo: string): string {
+  if (repo.includes("/")) {
+    return repo.split("/").pop()!;
+  }
+  return repo;
+}
+
 export async function listRepositories() {
   const endpoint = `/repositories/${workspace}`;
 
@@ -125,12 +136,14 @@ export async function listRepositories() {
 }
 
 export async function getRepository(repo: string) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}`;
 
   return request("getRepository", endpoint, () => bitbucket.get(endpoint));
 }
 
 export async function listPullRequests(repo: string) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests`;
 
   const data = await request<any>("listPullRequests", endpoint, () =>
@@ -141,6 +154,7 @@ export async function listPullRequests(repo: string) {
 }
 
 export async function getPullRequest(repo: string, id: number) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}`;
 
   return request("getPullRequest", endpoint, () => bitbucket.get(endpoint));
@@ -153,6 +167,7 @@ export async function createPullRequest(
   destination: string,
   description?: string,
 ) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests`;
 
   return request("createPullRequest", endpoint, () =>
@@ -174,6 +189,7 @@ export async function createPullRequest(
 }
 
 export async function approvePullRequest(repo: string, id: number) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/approve`;
 
   return request("approvePullRequest", endpoint, () =>
@@ -182,6 +198,7 @@ export async function approvePullRequest(repo: string, id: number) {
 }
 
 export async function mergePullRequest(repo: string, id: number) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/merge`;
 
   return request("mergePullRequest", endpoint, () =>
@@ -199,6 +216,7 @@ export async function addComment(
   filePath?: string,
   line?: number,
 ) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/comments`;
 
   const body: Record<string, unknown> = {
@@ -220,6 +238,7 @@ export async function addComment(
 }
 
 export async function listCommits(repo: string) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/commits`;
 
   const data = await request<any>("listCommits", endpoint, () =>
@@ -230,6 +249,7 @@ export async function listCommits(repo: string) {
 }
 
 export async function getPullRequestDiff(repo: string, id: number) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/diff`;
 
   return request<string>("getPullRequestDiff", endpoint, () =>
@@ -240,6 +260,7 @@ export async function getPullRequestDiff(repo: string, id: number) {
 }
 
 export async function getPullRequestComments(repo: string, id: number) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/comments`;
 
   const data = await request<any>("getPullRequestComments", endpoint, () =>
@@ -250,6 +271,7 @@ export async function getPullRequestComments(repo: string, id: number) {
 }
 
 export async function getPullRequestCommits(repo: string, id: number) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/commits`;
 
   const data = await request<any>("getPullRequestCommits", endpoint, () =>
@@ -265,6 +287,7 @@ export async function requestChanges(
   repo: string,
   id: number,
 ) {
+  repo = normalizeRepo(repo);
   const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}/request-changes`;
 
   return request("requestChanges", endpoint, () =>
@@ -272,7 +295,43 @@ export async function requestChanges(
   );
 }
 
+export interface UpdatePullRequestOptions {
+  title?: string;
+  description?: string;
+  destination?: string;
+  reviewers?: string[];
+}
+
+export async function updatePullRequest(
+  repo: string,
+  id: number,
+  options: UpdatePullRequestOptions,
+) {
+  repo = normalizeRepo(repo);
+  const endpoint = `/repositories/${workspace}/${repo}/pullrequests/${id}`;
+
+  const body: Record<string, unknown> = {};
+
+  if (options.title !== undefined) {
+    body.title = options.title;
+  }
+  if (options.description !== undefined) {
+    body.description = options.description;
+  }
+  if (options.destination !== undefined) {
+    body.destination = { branch: { name: options.destination } };
+  }
+  if (options.reviewers !== undefined) {
+    body.reviewers = options.reviewers.map((uuid) => ({ uuid }));
+  }
+
+  return request("updatePullRequest", endpoint, () =>
+    bitbucket.put(endpoint, body),
+  );
+}
+
 export async function canMergePullRequest(repo: string, id: number) {
+  repo = normalizeRepo(repo);
   const pr: any = await getPullRequest(repo, id);
 
   return {
